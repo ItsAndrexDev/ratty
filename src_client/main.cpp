@@ -6,8 +6,20 @@ int main()
 	NetworkManagement::ClientManager client_manager("127.0.0.1", 4444);
 
 	for (;;) {
-		int received = client_manager.sendAndReceive<int, int>(41);
-		std::cout << "Received: " << received << std::endl;
-		std::this_thread::sleep_for(std::chrono::seconds(1));
+        client_manager.writeData<int>(12345,
+            [&](bool success)
+            {
+                if (!success)
+                    return;
+
+                client_manager.readData<int>(
+                    [&](int received)
+                    {
+                        std::cout << "Received: " << received << std::endl;
+
+                        if (received == 12345)
+                            std::cout << "Data sent successfully!" << std::endl;
+                    });
+            });
 	}
 }

@@ -13,7 +13,7 @@ ServerManager::ServerManager(unsigned short port)
     );
 	m_ioContext.run();
     std::cout << "ioContext.run()!" << std::endl;
-
+	RemoveDisconnected();
 	AcceptClients();
     std::cout << "Server started on port " << port << std::endl;
 }
@@ -32,16 +32,15 @@ ServerManager::~ServerManager()
 void ServerManager::AcceptClients() {
 
     std::thread([this]() {
-        auto socket = std::make_shared<asio::ip::tcp::socket>(m_ioContext);
-        m_acceptor->accept(*socket);
+        for (;;) {
+            auto socket = std::make_shared<asio::ip::tcp::socket>(m_ioContext);
+            m_acceptor->accept(*socket);
 
-        socket->set_option(asio::socket_base::keep_alive(true));
-        std::cout << "Client connected: " << socket.get() << std::endl;
-        m_sockets.push_back(socket);
+            socket->set_option(asio::socket_base::keep_alive(true));
+            std::cout << "Client connected: " << socket.get() << std::endl;
+            m_sockets.push_back(socket);
+        }
     }).detach();
-	AcceptClients();
-
-    
 }
 
 

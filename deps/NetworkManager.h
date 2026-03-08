@@ -18,64 +18,84 @@ namespace NetworkManagement
     {
         asio::io_context m_ioContext;
         std::unique_ptr<asio::ip::tcp::acceptor> m_acceptor;
+
+        void RemoveDisconnected() {
+            std::thread([this]() {
+                while (true) {
+                    m_sockets.erase(
+                        std::remove_if(
+                            m_sockets.begin(),
+                            m_sockets.end(),
+                            [](const auto& s) { return s->is_open(); }),
+                        m_sockets.end()
+                    );
+					std::this_thread::sleep_for(std::chrono::seconds(5));
+                }
+				}).detach();
+        }
+        void AcceptClients();    
         std::vector<std::shared_ptr<asio::ip::tcp::socket>> m_sockets;
 
-
-        void AcceptClients();    
-
     public:
-		template<typename T>
-        T& readData(std::shared_ptr<asio::ip::tcp::socket>& fromSocket)
+        template<typename T, typename Handler>
+        void readData(Handler handler)
         {
-            for (auto& socket : m_sockets) {
-                asio::error_code ec;
-                char buf[sizeof(T)];
-                socket->async_read_some(asio::buffer(buf),
-                    [&, fromSocket,socket](const asio::error_code& ec, size_t length) {
+            for (auto& socket : m_sockets)
+            {
+                auto buf = std::make_shared<std::array<char, sizeof(T)>>();
 
-                        if (ec == asio::error::eof) {
+                socket->async_read_some(
+                    asio::buffer(*buf),
+                    [&, socket, buf, handler](const asio::error_code& ec, size_t length)
+                    {
+                        if (ec == asio::error::eof)
+                        {
                             std::cout << "Client disconnected: " << socket.get() << std::endl;
-                            m_sockets.erase(std::remove(m_sockets.begin(), m_sockets.end(), socket), m_sockets.end());
+                            return;
                         }
-                        else if (ec) {
+                        if (ec)
+                        {
                             std::cout << "Error: " << ec.message() << std::endl;
+                            return;
                         }
-                        else {
+
+                        if (length >= sizeof(T))
+                        {
                             T data;
-                            memcpy(&data, buf, sizeof(T));
-                            return data;
-                            fromSocket = std::make_shared<asio::ip::tcp::socket>(socket);
-                            // Process data here
+                            memcpy(&data, buf->data(), sizeof(T));
+
+                            handler(data, socket);  // deliver result
                         }
                     });
+            }
+        }
+        template<typename T, typename Handler>
+        void writeData(std::shared_ptr<asio::ip::tcp::socket> socket, const T& data, Handler handler)
+        {
+            auto buffer = std::make_shared<T>(data);
 
-            };
+            asio::async_write(
+                *socket,
+                asio::buffer(buffer.get(), sizeof(T)),
+                [socket, buffer, handler](const asio::error_code& ec, std::size_t length)
+                {
+                    if (ec == asio::error::eof)
+                    {
+                        std::cout << "Server closed connection." << std::endl;
+                        handler(false);
+                        return;
+                    }
+
+                    if (ec)
+                    {
+                        std::cout << "Error: " << ec.message() << std::endl;
+                        handler(false);
+                        return;
+                    }
+
+                    handler(true);
+                });
         }
-		template<typename T>
-        bool writeData(std::shared_ptr<asio::ip::tcp::socket> socket, T data)
-        {
-            asio::error_code ec;
-            size_t len = socket->write_some(asio::buffer(&data, sizeof(T)), ec);
-            if (ec == asio::error::eof) {
-                std::cout << "Server closed connection." << std::endl;
-                return false;
-            }
-            else if (ec) {
-                std::cout << "Error: " << ec.message() << std::endl;
-                return false;
-            }
-            return true;
-        }
-        template<typename Fd, typename Td>
-        Td sendAndReceive(Fd dataToSend)
-        {
-			std::shared_ptr<asio::ip::tcp::socket> fromSocket;
-            if (!writeData(fromSocket, dataToSend))
-            {
-				return readData<Td>(fromSocket);
-                throw std::runtime_error("Failed to send data.");
-            }
-		}
 
         ServerManager(unsigned short port);
 
@@ -85,50 +105,65 @@ namespace NetworkManagement
     class ClientManager
     {
         asio::io_context m_ioContext;
-        std::unique_ptr<asio::ip::tcp::socket> m_socket;
+        std::shared_ptr<asio::ip::tcp::socket> m_socket;
     public:
-		template<typename T>
-        T& readData()
+        template<typename T, typename Handler>
+        void readData(Handler handler)
         {
-            asio::error_code ec;
-            char buf[sizeof(T)];
-            size_t len = m_socket->read_some(asio::buffer(buf), ec);
-            if (ec == asio::error::eof) {
-                std::cout << "Server closed connection." << std::endl;
-                return 0;
-            }
-            else if (ec) {
-                std::cout << "Error: " << ec.message() << std::endl;
-                return 0;
-            }
-            T data;
-            memcpy(&data, buf, sizeof(T));
-            return data;
+            auto buf = std::make_shared<std::array<char, sizeof(T)>>();
+
+            m_socket->async_read_some(
+                asio::buffer(*buf),
+                [&, this, buf, handler](const asio::error_code& ec, size_t length)
+                {
+                    if (ec == asio::error::eof)
+                    {
+                        std::cout << "Client disconnected" << std::endl;
+                        return;
+                    }
+                    if (ec)
+                    {
+                        std::cout << "Error: " << ec.message() << std::endl;
+                        return;
+                    }
+
+                    if (length >= sizeof(T))
+                    {
+                        T data;
+                        memcpy(&data, buf->data(), sizeof(T));
+
+                        handler(data, m_socket);  // deliver result
+                    }
+                });
+            
         }
-        template<typename T>
-        bool writeData(T data)
+        template<typename T, typename Handler>
+        void writeData(const T& data, Handler handler)
         {
-            asio::error_code ec;
-            size_t len = m_socket->write_some(asio::buffer(&data, sizeof(T)), ec);
-            if (ec == asio::error::eof) {
-                std::cout << "Server closed connection." << std::endl;
-                return false;
-            }
-            else if (ec) {
-                std::cout << "Error: " << ec.message() << std::endl;
-                return false;
-            }
-            return true;
+            auto buffer = std::make_shared<T>(data);
+
+            asio::async_write(
+                *m_socket,
+                asio::buffer(buffer.get(), sizeof(T)),
+                [handler](const asio::error_code& ec, std::size_t length)
+                {
+                    if (ec == asio::error::eof)
+                    {
+                        std::cout << "Server closed connection." << std::endl;
+                        handler(false);
+                        return;
+                    }
+
+                    if (ec)
+                    {
+                        std::cout << "Error: " << ec.message() << std::endl;
+                        handler(false);
+                        return;
+                    }
+
+                    handler(true);
+                });
         }
-        template<typename Fd,typename Td>
-        Td sendAndReceive(Fd dataToSend)
-        {
-            if (!writeData(dataToSend))
-            {
-                throw std::runtime_error("Failed to send data.");
-            }
-            return readData<Td>();
-		}
         ClientManager(const char* ip, unsigned short port);
         ~ClientManager();
     };

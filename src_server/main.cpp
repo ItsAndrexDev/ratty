@@ -6,9 +6,17 @@ int main()
 
     NetworkManagement::ServerManager server_manager(4444);
 	for (;;) {
-		int received = server_manager.sendAndReceive<int, int>(42);
+        server_manager.readData<int>(
+            [&](int received, auto socket)
+            {
+                std::cout << "Received: " << received << std::endl;
 
-		std::cout << "Received: " << received << std::endl;
-		std::this_thread::sleep_for(std::chrono::seconds(1));
+                server_manager.writeData<int>(socket, received,
+                    [](bool success)
+                    {
+                        if (success)
+                            std::cout << "Data sent successfully!" << std::endl;
+                    });
+            });
 	}
 }
