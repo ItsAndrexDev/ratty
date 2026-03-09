@@ -51,6 +51,7 @@ ClientManager::ClientManager(const char* ip, unsigned short port) : m_socket(std
         auto endpoints = resolver.resolve(ip, std::to_string(port));
         asio::connect(*m_socket, endpoints);
         std::cout << "[Client] Connected to server " << ip << ":" << port << "\n";
+        m_ioContext.run();
     }
     catch (std::exception& e) {
         std::cerr << "[Client Error] " << e.what() << "\n";

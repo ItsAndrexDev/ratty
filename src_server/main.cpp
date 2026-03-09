@@ -6,6 +6,8 @@ int main()
 
     NetworkManagement::ServerManager server_manager(4444);
 	for (;;) {
+	    std::cout << "reading... \n";
+
         server_manager.readData<int>(
             [&](int received, auto socket)
             {

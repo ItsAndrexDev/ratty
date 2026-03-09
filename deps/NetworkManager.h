@@ -137,32 +137,11 @@ namespace NetworkManagement
                 });
             
         }
-        template<typename T, typename Handler>
-        void writeData(const T& data, Handler handler)
-        {
-            auto buffer = std::make_shared<T>(data);
-
-            asio::async_write(
-                *m_socket,
-                asio::buffer(buffer.get(), sizeof(T)),
-                [handler](const asio::error_code& ec, std::size_t length)
-                {
-                    if (ec == asio::error::eof)
-                    {
-                        std::cout << "Server closed connection." << std::endl;
-                        handler(false);
-                        return;
-                    }
-
-                    if (ec)
-                    {
-                        std::cout << "Error: " << ec.message() << std::endl;
-                        handler(false);
-                        return;
-                    }
-
-                    handler(true);
-                });
+        template<typename T>
+        void writeData(const T& data) {
+            std::cout << "writedata\n";
+            const size_t len = asio::write(m_socket, asio::buffer(data));
+            std::cout << len << std::endl;
         }
         ClientManager(const char* ip, unsigned short port);
         ~ClientManager();
