@@ -17,8 +17,6 @@ struct Message {
 	Message(int session, int value, Action action) : session(session), value(value), action(action) {};
 };
 
-
-
 int main()
 {
 	Crilly::ClientManager client_manager("127.0.0.1", 4444);
@@ -44,8 +42,4 @@ int main()
 		}
 		std::this_thread::sleep_for(std::chrono::milliseconds(100));
 	}
-
-
-
-
 }

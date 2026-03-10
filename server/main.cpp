@@ -17,7 +17,6 @@ struct Message {
 
 int main()
 {
-
     Crilly::ServerManager server_manager(4444);
 
     for (;;) {
