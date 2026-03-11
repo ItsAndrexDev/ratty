@@ -1,19 +1,5 @@
 #include "../deps/NetworkManager.h"
-enum Action {
-    WATCH = 0,
-    LOG,
-    EXIT,
-    UNINSTALL
-};
-struct Message {
-    int session;
-    int value;
-    Action action;
-
-    Message() = default;
-
-    Message(int session, int value, Action action) : session(session), value(value), action(action) {};
-};
+#include "../deps/ResponseEntity.h"
 
 int main()
 {
