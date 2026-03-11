@@ -17,5 +17,11 @@ file(GLOB_RECURSE CLIENT_SOURCES CONFIGURE_DEPENDS
         deps/*.cpp
 )
 
+file(GLOB_RECURSE ADMIN_SOURCES CONFIGURE_DEPENDS
+        admin/*.cpp
+        deps/*.cpp
+)
+
 add_executable(server ${SERVER_SOURCES})
 add_executable(client ${CLIENT_SOURCES})
+add_executable(admin ${ADMIN_SOURCES})
