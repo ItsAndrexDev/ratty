@@ -14,6 +14,8 @@ namespace Crilly
     struct IncomingMessage {
         std::shared_ptr<asio::ip::tcp::socket> socket;
         T data;
+        IncomingMessage() {};
+        IncomingMessage(T data) : data(data) {};
     };
 
     class ServerManager {
@@ -68,6 +70,7 @@ namespace Crilly
         }
 
         // Non-blocking check for new data
+        // USED WITH WHILE FUNCTION
         template<typename T>
         bool getNextMessage(IncomingMessage<T>& out) {
             if (m_socket->is_open() && m_socket->available() >= sizeof(T)) {
